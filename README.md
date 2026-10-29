@@ -11,20 +11,29 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Create a TMDB account, request an API read access token from the TMDB API settings, and put that token in `.env` as `TMDB_API_TOKEN`:
+Create a TMDB account, request an API read access token from the TMDB API settings, and obtain a free Gemini API key from Google AI Studio (https://aistudio.google.com/). Add them to `.env`:
 
 ```env
+# TMDB Read Access Token (or TMDB_API_KEY)
 TMDB_API_TOKEN=paste_your_personal_tmdb_read_access_token_here
+
+# Google Gemini API Key
+GEMINI_API_KEY=paste_your_gemini_api_key_here
+
 PORT=5002
 ```
 
-Do not commit `.env` or share the token. Then start the app:
+Do not commit `.env` or share your tokens. Then start the app:
 
 ```powershell
 python main.py
 ```
 
-Open `http://127.0.0.1:5002`. The site has separate pages for `/movies` (100 popular English and Hindi titles), `/movie/<id>` (verified details), `/analyzer` (VADER review analysis), and `/ask` (metadata-grounded Q&A). The review lab works independently of TMDB. The Q&A fallback only answers from the selected movie's verified metadata and explicitly declines unsupported questions. Set `PORT` in `.env` if you want another port.
+Open `http://127.0.0.1:5002`. The site provides:
+- `/movies`: 100 popular English and Hindi titles fetched via TMDB.
+- `/movie/<id>`: Verified details, trailer, cast, and genres.
+- `/analyzer`: VADER sentiment analysis augmented with Gemini AI emotional tone insights.
+- `/ask`: Context-grounded Movie Q&A powered by Gemini AI with spoiler-safety guards (falls back to TMDB metadata if Gemini is unconfigured).
 
 ## Checks
 

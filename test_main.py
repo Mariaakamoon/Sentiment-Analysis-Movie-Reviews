@@ -5,6 +5,67 @@ def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json["ok"] is True
+    assert "tmdb_configured" in response.json
+    assert "gemini_configured" in response.json
+
+
+def test_health_reflects_gemini_env(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key-123")
+    response = client.get("/health")
+    assert response.json["gemini_configured"] is True
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    response = client.get("/health")
+    assert response.json["gemini_configured"] is False
+
+
+def test_qa_uses_gemini_when_configured(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr(
+        main,
+        "_gemini_request",
+        lambda prompt, system_instruction=None: ("Gemini test answer about the film.", None),
+    )
+    response = client.post(
+        "/api/ask",
+        json={"movie": {"title": "Inception", "overview": "A dream within a dream.", "cast": ["Leonardo DiCaprio"]}, "question": "What is the theme?", "spoilers": False},
+    )
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert response.json["source"] == "Gemini AI"
+    assert response.json["answer"] == "Gemini test answer about the film."
+
+
+def test_qa_fallback_when_gemini_unavailable(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr(
+        main,
+        "_gemini_request",
+        lambda prompt, system_instruction=None: (None, "Quota exceeded"),
+    )
+    response = client.post(
+        "/api/ask",
+        json={"movie": {"title": "Inception", "overview": "A dream within a dream.", "genres": ["Action", "Sci-Fi"]}, "question": "What genre is this?", "spoilers": False},
+    )
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert response.json["source"] == "TMDB"
+    assert "Action, Sci-Fi" in response.json["answer"]
+
+
+def test_analyze_with_gemini_insight(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr(
+        main,
+        "_gemini_request",
+        lambda prompt, system_instruction=None: ("A profoundly moving and thoughtful performance.", None),
+    )
+    response = client.post("/api/analyze", json={"review": "A truly breathtaking movie with superb acting."})
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert set(response.json["result"]) == {"sentiment", "positive", "negative", "neutral", "compound"}
+    assert response.json["ai_insight"] == "A profoundly moving and thoughtful performance."
 
 
 def test_separate_pages_render(client):
