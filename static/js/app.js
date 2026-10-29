@@ -88,9 +88,11 @@ async function ask(event) {
 }
 
 $("#theme-toggle")?.addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
-$("#search-form")?.addEventListener("submit", search);
-$("#review-form")?.addEventListener("submit", analyze);
-$("#ask-form")?.addEventListener("submit", ask);
+if ($("#trending-grid")) {
+  $("#search-form")?.addEventListener("submit", search);
+  $("#review-form")?.addEventListener("submit", analyze);
+  $("#ask-form")?.addEventListener("submit", ask);
+}
 $("#close-detail")?.addEventListener("click", () => $("#detail-section").classList.add("hidden"));
 document.addEventListener("click", (event) => {
   const open = event.target.closest(".movie-open");
