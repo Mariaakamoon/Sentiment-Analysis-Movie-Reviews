@@ -1,4 +1,5 @@
 import os
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -31,20 +32,30 @@ def _tmdb_request(path, params=None):
         query = "?" + "&".join(
             f"{quote(str(key))}={quote(str(value))}" for key, value in params.items()
         )
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "CineScope/1.0 (student movie discovery project)",
+        "Connection": "close",
+    }
     if os.getenv("TMDB_API_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     else:
         query += ("&" if query else "?") + f"api_key={quote(token)}"
 
-    try:
-        with urlopen(
-            Request(f"{TMDB_BASE_URL}{path}{query}", headers=headers),
-            timeout=8,
-        ) as response:
-            return response.status and response.read(), None
-    except (HTTPError, URLError, TimeoutError) as error:
-        return None, f"Movie provider unavailable: {error.reason if hasattr(error, 'reason') else error}"
+    last_error = None
+    for attempt in range(3):
+        try:
+            with urlopen(
+                Request(f"{TMDB_BASE_URL}{path}{query}", headers=headers),
+                timeout=8,
+            ) as response:
+                return response.status and response.read(), None
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+    reason = last_error.reason if hasattr(last_error, "reason") else last_error
+    return None, f"Movie provider unavailable: {reason}"
 
 
 def _decode_tmdb(payload):
@@ -159,6 +170,7 @@ def movie_catalog():
             for movie in data["results"]:
                 if movie.get("id"):
                     movies[movie["id"]] = _movie_summary(movie)
+            time.sleep(0.2)
     results = sorted(movies.values(), key=lambda movie: movie.get("rating") or 0, reverse=True)[:100]
     return jsonify({"ok": True, "source": "TMDB", "count": len(results), "results": results})
 
