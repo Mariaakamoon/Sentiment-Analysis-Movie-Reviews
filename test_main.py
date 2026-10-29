@@ -73,13 +73,14 @@ def test_separate_pages_render(client):
         assert client.get(path).status_code == 200
 
 
-def test_catalog_requires_tmdb_without_fabricating_movies(client, monkeypatch):
+def test_catalog_uses_local_dataset_without_tmdb(client, monkeypatch):
     monkeypatch.delenv("TMDB_API_TOKEN", raising=False)
     monkeypatch.delenv("TMDB_API_KEY", raising=False)
     response = client.get("/api/movies/catalog")
-    assert response.status_code == 502
-    assert response.json["ok"] is False
-    assert response.json["error"].startswith("TMDB is not configured")
+    assert response.status_code == 200
+    assert response.json["ok"] is True
+    assert response.json["source"] == "TMDB 5000 local dataset"
+    assert response.json["count"] <= 100
 
 
 def test_analyze_endpoint_preserves_classifier_contract(client, monkeypatch):
@@ -112,6 +113,18 @@ def test_qa_honors_spoiler_free_mode(client):
     )
     assert response.status_code == 200
     assert "will not reveal" in response.json["answer"]
+
+
+def test_qa_uses_grounded_gemini_when_configured(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(main, "_gemini_answer", lambda movie, question, spoilers: "Grounded answer.")
+    response = client.post(
+        "/api/ask",
+        json={"movie": {"title": "Example", "overview": "A story.", "cast": []}, "question": "Is it worth watching?", "spoilers": False},
+    )
+    assert response.status_code == 200
+    assert response.json["answer"] == "Grounded answer."
+    assert response.json["kind"] == "gemini_grounded"
 
 
 import pytest

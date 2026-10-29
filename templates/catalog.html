@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="topbar"><a class="brand" href="/" aria-label="CineScope home"><span class="brand-mark">C</span><span>Cine<span>Scope</span></span></a><nav aria-label="Primary navigation"><a href="/movies">Movies</a><a href="/analyzer">Review lab</a><a href="/ask">Movie Q&amp;A</a></nav><button class="theme-toggle" id="theme-toggle" type="button">◐ <span>Theme</span></button></header>
-  <main class="content-section page-main"><p class="eyebrow">THE LIBRARY</p><h1 class="page-title">100 films worth<br><em>your evening.</em></h1><p class="hero-lede">The most popular films currently available from TMDB across English and Hindi cinema. Provider-sourced, never fabricated.</p><p class="hint" id="catalog-status" role="status">Loading 100 films from TMDB...</p><div class="movie-grid" id="catalog-grid"><div class="loading">Building the library...</div></div></main>
+  <main class="content-section page-main"><p class="eyebrow">THE LIBRARY</p><h1 class="page-title">100 films worth<br><em>your evening.</em></h1><p class="hero-lede">Popular English and Hindi films from the local TMDB 5000 dataset. Historical metadata, never fabricated.</p><p class="hint" id="catalog-status" role="status">Loading 100 films from the local dataset...</p><div class="movie-grid" id="catalog-grid"><div class="loading">Building the library...</div></div></main>
   <footer><span>© 2026 CineScope</span><span>Metadata by <a href="https://www.themoviedb.org/" rel="noreferrer">TMDB</a>.</span></footer>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script><script src="{{ url_for('static', filename='js/catalog.js') }}"></script>
 </body>
