@@ -46,9 +46,17 @@
         <form class="panel review-form" id="review-form">
           <label for="review">Paste a review</label>
           <textarea id="review" rows="7" placeholder="“A quietly brilliant film...”"></textarea>
+          <div class="review-tools">
+            <div class="prompt-chips" aria-label="Try a sample review">
+              <button class="sample-button" type="button" data-review="A gorgeous, heartfelt story with performances that stay with you.">Heartfelt</button>
+              <button class="sample-button" type="button" data-review="A dull, messy slog that never gets its story off the ground.">Scathing</button>
+              <button class="sample-button" type="button" data-review="The movie is 112 minutes long and stars a talented cast.">Just facts</button>
+            </div>
+            <span class="character-count" id="review-count" aria-live="polite">0 characters</span>
+          </div>
           <button type="submit" class="primary-button">Read the room <span>→</span></button>
         </form>
-        <div class="panel result-panel" id="review-result"><span class="result-placeholder">Your readout will appear here.</span></div>
+        <div class="panel result-panel" id="review-result" aria-live="polite"><span class="result-placeholder">Your readout will appear here. Pick a prompt or paste a review to get started.</span></div>
       </div>
     </section>
     <section class="content-section qa-section">

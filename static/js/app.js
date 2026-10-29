@@ -67,12 +67,41 @@ async function search(event) {
 
 async function analyze(event) {
   event.preventDefault();
-  const review = $("#review").value;
-  const response = await fetch("/api/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ review }) });
-  const data = await response.json();
-  if (!response.ok || !data.ok) { $("#review-result").innerHTML = `<span class="result-placeholder">${escapeHtml(data.error)}</span>`; return; }
-  const result = data.result;
-  $("#review-result").innerHTML = `<div><div class="score">${result.sentiment}</div><div class="score-label">COMPOUND ${result.compound.toFixed(3)}</div><div class="bars">positive ${result.positive.toFixed(3)} · negative ${result.negative.toFixed(3)} · neutral ${result.neutral.toFixed(3)}</div></div>`;
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  const target = $("#review-result");
+  button.disabled = true;
+  button.innerHTML = 'Reading the room... <span>✳</span>';
+  target.innerHTML = '<span class="result-placeholder">Tuning into the audience reaction...</span>';
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ review: $("#review").value }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "Could not analyze this review.");
+
+    const result = data.result;
+    const mood = ["positive", "negative", "neutral"].includes(result.sentiment.toLowerCase())
+      ? result.sentiment.toLowerCase()
+      : "neutral";
+    const emoji = { positive: "☺", negative: "☹", neutral: "◌" }[mood];
+    const compound = Number(result.compound);
+    const compoundPosition = Math.max(0, Math.min(100, (compound + 1) * 50));
+    const scores = ["positive", "negative", "neutral"].map((label) => {
+      const score = Math.max(0, Math.min(1, Number(result[label])));
+      return `<div class="score-row"><span>${label}</span><div class="score-track" role="meter" aria-label="${label} score" aria-valuemin="0" aria-valuemax="1" aria-valuenow="${score.toFixed(3)}"><span class="score-fill ${label}" style="width:${(score * 100).toFixed(1)}%"></span></div><span class="score-value">${score.toFixed(3)}</span></div>`;
+    }).join("");
+    const compoundClass = compound > 0 ? "positive" : compound < 0 ? "negative" : "neutral";
+    target.innerHTML = `<div class="result-content"><div class="result-topline"><div><div class="result-kicker">The audience is feeling...</div><h3 class="result-sentiment ${mood}">${escapeHtml(result.sentiment)}</h3></div><span class="sentiment-stamp" aria-hidden="true">${emoji}</span></div><div class="compound-card"><div class="compound-heading"><span>OVERALL VIBE</span><span class="compound-value">${compound.toFixed(3)}</span></div><div class="compound-track" role="meter" aria-label="Overall sentiment" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="${compound.toFixed(3)}"><span class="compound-fill ${compoundClass}" style="width:${compoundPosition}%"></span></div></div><div class="score-list">${scores}</div></div>`;
+  } catch (error) {
+    target.innerHTML = `<span class="result-placeholder">${escapeHtml(error.message || "Could not connect to the sentiment analyzer. Please try again.")}</span>`;
+  } finally {
+    button.disabled = false;
+    button.innerHTML = `${button.dataset.label || "Analyze sentiment"} <span>→</span>`;
+  }
 }
 
 async function ask(event) {
@@ -100,4 +129,23 @@ document.addEventListener("click", (event) => {
 });
 if ($("#trending-grid")) {
   loadTrending().catch((error) => { $("#trending-grid").innerHTML = `<p class="loading">${escapeHtml(error.message)}</p>`; });
+}
+
+const reviewInput = $("#review");
+if (reviewInput) {
+  const count = $("#review-count");
+  const submitButton = $("#review-form").querySelector('button[type="submit"]');
+  submitButton.dataset.label = submitButton.textContent.trim().replace(/\s*→$/, "");
+  const updateReviewCount = () => {
+    const length = reviewInput.value.length;
+    count.textContent = `${length} ${length === 1 ? "character" : "characters"}`;
+  };
+  reviewInput.addEventListener("input", updateReviewCount);
+  document.querySelectorAll("[data-review]").forEach((button) => {
+    button.addEventListener("click", () => {
+      reviewInput.value = button.dataset.review;
+      updateReviewCount();
+      reviewInput.focus();
+    });
+  });
 }
