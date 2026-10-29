@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CineScope finds the story, feels the film, and reads the room.">
+  <title>CineScope — Find the story</title>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("cinescope-theme") ||
+      (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="CineScope home"><span class="brand-mark">C</span><span>Cine<span>Scope</span></span></a>
+    <nav aria-label="Primary navigation"><a href="/movies">Movies</a><a href="/analyzer">Review lab</a><a href="/ask">Movie Q&amp;A</a></nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch theme">◐ <span>Theme</span></button>
+  </header>
+  <main>
+    <section class="hero" id="discover">
+      <div class="hero-copy">
+        <p class="eyebrow">MOVIE DISCOVERY × SENTIMENT INTELLIGENCE</p>
+        <h1>Find the story.<br><em>Feel the film.</em><br>Know before you watch.</h1>
+        <p class="hero-lede">A considered way to discover what is worth your time, grounded in real movie data and the reviews people leave behind.</p>
+        <form class="search" id="search-form">
+          <label class="sr-only" for="search-input">Search movies</label>
+          <input id="search-input" autocomplete="off" placeholder="Search a title, like Dune or Moonlight">
+          <button type="submit">Search <span>↗</span></button>
+        </form>
+        <p class="hint" id="status" role="status">Search is powered by TMDB when configured on the server.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true"><div class="film-frame"><span>THE<br>EVENING<br>SCREEN</span><small>CS / 01</small></div></div>
+    </section>
+    <section class="content-section">
+      <div class="section-heading"><div><p class="eyebrow">IN THE SPOTLIGHT</p><h2>Trending this week</h2></div><span class="source-note">Source: TMDB</span></div>
+      <div class="movie-grid" id="trending-grid"><div class="loading">Loading this week's conversation...</div></div>
+    </section>
+    <section class="content-section hidden" id="detail-section">
+      <div class="section-heading"><div><p class="eyebrow">YOUR NEXT WATCH</p><h2 id="detail-title">Movie detail</h2></div><button class="text-button" id="close-detail">Close</button></div>
+      <div class="detail" id="detail"></div>
+    </section>
+    <section class="content-section" id="analyzer">
+      <div class="section-heading"><div><p class="eyebrow">THE REVIEW LAB</p><h2>What did the audience feel?</h2></div><span class="source-note">VADER sentiment model</span></div>
+      <div class="lab-grid">
+        <form class="panel review-form" id="review-form">
+          <label for="review">Paste a review</label>
+          <textarea id="review" rows="7" placeholder="“A quietly brilliant film...”"></textarea>
+          <button type="submit" class="primary-button">Read the room <span>→</span></button>
+        </form>
+        <div class="panel result-panel" id="review-result"><span class="result-placeholder">Your readout will appear here.</span></div>
+      </div>
+    </section>
+    <section class="content-section qa-section">
+      <div class="section-heading"><div><p class="eyebrow">CONTEXT, NOT GUESSWORK</p><h2>Ask about a movie</h2></div></div>
+      <div class="panel qa-panel">
+        <div class="qa-toolbar"><label for="movie-select">Movie context</label><select id="movie-select"><option value="">Select a movie from search or trending</option></select><label class="switch"><input id="spoilers" type="checkbox"><span></span> Spoilers on</label></div>
+        <div class="chat" id="chat" aria-live="polite"><p class="assistant-message">Choose a movie, then ask me about its story, genres, runtime, or cast. I will say when I do not have enough information.</p></div>
+        <form class="ask-form" id="ask-form"><label class="sr-only" for="question">Ask about this movie</label><input id="question" placeholder="What is this movie about?"><button type="submit" aria-label="Send question">↑</button></form>
+      </div>
+    </section>
+  </main>
+  <footer><span>© 2026 CineScope</span><span>Metadata by <a href="https://www.themoviedb.org/" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</span></footer>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

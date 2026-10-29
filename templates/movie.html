@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CineScope — Movie detail</title>
+  <script>document.documentElement.dataset.theme=localStorage.getItem("cinescope-theme")||(matchMedia("(prefers-color-scheme:light)").matches?"light":"dark");</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="CineScope home"><span class="brand-mark">C</span><span>Cine<span>Scope</span></span></a><nav aria-label="Primary navigation"><a href="/movies">Movies</a><a href="/analyzer">Review lab</a><a href="/ask">Movie Q&amp;A</a></nav><button class="theme-toggle" id="theme-toggle" type="button">◐ <span>Theme</span></button></header>
+  <main class="content-section page-main"><a class="back-link" href="/movies">← Back to library</a><div id="movie-detail" class="detail detail-page"><div class="loading">Loading verified movie details...</div></div></main>
+  <footer><span>© 2026 CineScope</span><span>Metadata by <a href="https://www.themoviedb.org/" rel="noreferrer">TMDB</a>.</span></footer>
+  <script>window.CINESCOPE_MOVIE_ID={{ movie_id }};</script><script src="{{ url_for('static', filename='js/app.js') }}"></script><script src="{{ url_for('static', filename='js/movie.js') }}"></script>
+</body>
+</html>
