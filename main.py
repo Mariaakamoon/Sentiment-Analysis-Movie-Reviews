@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from sentiment import classify_sentiment
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 app = Flask(__name__)
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
