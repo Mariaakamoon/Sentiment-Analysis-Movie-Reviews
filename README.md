@@ -15,6 +15,8 @@ Create a TMDB account, request an API read access token from the TMDB API settin
 
 ```env
 TMDB_API_TOKEN=paste_your_personal_tmdb_read_access_token_here
+GEMINI_API_KEY=paste_your_personal_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
 PORT=5002
 ```
 
@@ -24,7 +26,7 @@ Do not commit `.env` or share the token. Then start the app:
 python main.py
 ```
 
-Open `http://127.0.0.1:5002`. The site has separate pages for `/movies` (100 popular English and Hindi titles), `/movie/<id>` (verified details), `/analyzer` (VADER review analysis), and `/ask` (metadata-grounded Q&A). The review lab works independently of TMDB. The Q&A fallback only answers from the selected movie's verified metadata and explicitly declines unsupported questions. Set `PORT` in `.env` if you want another port.
+Open `http://127.0.0.1:5002`. The site has separate pages for `/movies` (100 popular English and Hindi titles), `/movie/<id>` (verified details), `/analyzer` (VADER review analysis), and `/ask` (metadata-grounded Q&A). The review lab works independently of TMDB. Gemini is optional and is used only for Q&A grounded in the selected TMDB metadata; without `GEMINI_API_KEY`, CineScope uses its deterministic fallback. Set `PORT` in `.env` if you want another port.
 
 ## Checks
 

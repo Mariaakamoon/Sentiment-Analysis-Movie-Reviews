@@ -53,6 +53,18 @@ def test_qa_honors_spoiler_free_mode(client):
     assert "will not reveal" in response.json["answer"]
 
 
+def test_qa_uses_grounded_gemini_when_configured(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(main, "_gemini_answer", lambda movie, question, spoilers: "Grounded answer.")
+    response = client.post(
+        "/api/ask",
+        json={"movie": {"title": "Example", "overview": "A story.", "cast": []}, "question": "Is it worth watching?", "spoilers": False},
+    )
+    assert response.status_code == 200
+    assert response.json["answer"] == "Grounded answer."
+    assert response.json["kind"] == "gemini_grounded"
+
+
 import pytest
 
 

@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -17,6 +18,7 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w1280"
 catalog_cache = None
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 def _tmdb_token():
@@ -60,11 +62,46 @@ def _tmdb_request(path, params=None):
 
 
 def _decode_tmdb(payload):
-    import json
-
     try:
         return json.loads(payload)
     except (TypeError, ValueError):
+        return None
+
+
+def _gemini_answer(movie, question, spoiler_mode):
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+
+    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    prompt = (
+        "You are CineScope's factual movie assistant. Answer only from the supplied "
+        "TMDB metadata. Do not invent facts, reviews, plot details, endings, or sources. "
+        f"Spoiler mode is {'on' if spoiler_mode else 'off'}. If spoiler mode is off, "
+        "do not reveal endings or major plot developments. If the metadata does not "
+        "support the answer, say that clearly. Keep the answer under 120 words.\n\n"
+        f"Movie metadata:\n{movie}\n\nQuestion: {question}"
+    )
+    body = json.dumps(
+        {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 180},
+        }
+    ).encode("utf-8")
+    try:
+        with urlopen(
+            Request(
+                f"{GEMINI_BASE_URL}/{quote(model)}:generateContent?key={quote(api_key)}",
+                data=body,
+                headers={"Content-Type": "application/json", "User-Agent": "CineScope/1.0"},
+                method="POST",
+            ),
+            timeout=12,
+        ) as response:
+            data = _decode_tmdb(response.read())
+        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        return text or None
+    except (HTTPError, URLError, TimeoutError, KeyError, IndexError, TypeError, ValueError):
         return None
 
 
@@ -249,7 +286,13 @@ def ask_about_movie():
     else:
         answer = "I can answer from the available TMDB metadata, but this question needs a fuller source than this app currently has. I will not guess."
         kind = "unavailable"
-    return jsonify({"ok": True, "answer": answer, "kind": kind, "source": "TMDB", "spoilers": spoiler_mode})
+    if kind == "unavailable":
+        generated = _gemini_answer(movie, question, spoiler_mode)
+        if generated:
+            answer = generated
+            kind = "gemini_grounded"
+    source = "TMDB + Gemini" if kind == "gemini_grounded" else "TMDB"
+    return jsonify({"ok": True, "answer": answer, "kind": kind, "source": source, "spoilers": spoiler_mode})
 
 
 if __name__ == "__main__":
