@@ -1,4 +1,5 @@
 import os
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -9,12 +10,13 @@ from dotenv import load_dotenv
 from sentiment import classify_sentiment
 
 
-load_dotenv()
+load_dotenv(encoding="utf-8-sig")
 app = Flask(__name__)
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w1280"
+catalog_cache = None
 
 
 def _tmdb_token():
@@ -31,20 +33,30 @@ def _tmdb_request(path, params=None):
         query = "?" + "&".join(
             f"{quote(str(key))}={quote(str(value))}" for key, value in params.items()
         )
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "CineScope/1.0 (student movie discovery project)",
+        "Connection": "close",
+    }
     if os.getenv("TMDB_API_TOKEN"):
         headers["Authorization"] = f"Bearer {token}"
     else:
         query += ("&" if query else "?") + f"api_key={quote(token)}"
 
-    try:
-        with urlopen(
-            Request(f"{TMDB_BASE_URL}{path}{query}", headers=headers),
-            timeout=8,
-        ) as response:
-            return response.status and response.read(), None
-    except (HTTPError, URLError, TimeoutError) as error:
-        return None, f"Movie provider unavailable: {error.reason if hasattr(error, 'reason') else error}"
+    last_error = None
+    for attempt in range(3):
+        try:
+            with urlopen(
+                Request(f"{TMDB_BASE_URL}{path}{query}", headers=headers),
+                timeout=8,
+            ) as response:
+                return response.status and response.read(), None
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+            if attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+    reason = last_error.reason if hasattr(last_error, "reason") else last_error
+    return None, f"Movie provider unavailable: {reason}"
 
 
 def _decode_tmdb(payload):
@@ -138,6 +150,10 @@ def trending_movies():
 
 @app.get("/api/movies/catalog")
 def movie_catalog():
+    global catalog_cache
+    if catalog_cache is not None:
+        return jsonify({"ok": True, "source": "TMDB", "count": len(catalog_cache), "results": catalog_cache})
+
     movies = {}
     for language in ("en", "hi"):
         for page in range(1, 4):
@@ -159,7 +175,9 @@ def movie_catalog():
             for movie in data["results"]:
                 if movie.get("id"):
                     movies[movie["id"]] = _movie_summary(movie)
+            time.sleep(0.2)
     results = sorted(movies.values(), key=lambda movie: movie.get("rating") or 0, reverse=True)[:100]
+    catalog_cache = results
     return jsonify({"ok": True, "source": "TMDB", "count": len(results), "results": results})
 
 
