@@ -1,4 +1,3 @@
-```python
 from sentiment import classify_sentiment
 from review_io import display_results
 
@@ -34,4 +33,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
+
+    
