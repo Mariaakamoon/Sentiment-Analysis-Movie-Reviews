@@ -1,12 +1,23 @@
 const askState = { movies: new Map() };
 async function loadAskMovies() {
   const select = document.querySelector("#movie-select");
-  try {
-    const response = await fetch("/api/movies/catalog");
-    const data = await response.json();
-    if (!response.ok || !data.ok) throw new Error(data.error);
-    data.results.forEach((movie) => { askState.movies.set(String(movie.id), movie); select.add(new Option(`${movie.title} (${movie.year})`, movie.id)); });
-  } catch (error) { select.innerHTML = `<option value="">${escapeHtml(error.message)}</option>`; }
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      select.innerHTML = `<option value="">Loading movie library (attempt ${attempt}/3)...</option>`;
+      const response = await fetch(`/api/movies/catalog?retry=${attempt}`);
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error);
+      select.innerHTML = '<option value="">Select a movie</option>';
+      data.results.forEach((movie) => { askState.movies.set(String(movie.id), movie); select.add(new Option(`${movie.title} (${movie.year})`, movie.id)); });
+      return;
+    } catch (error) {
+      if (attempt === 3) {
+        select.innerHTML = `<option value="">Movie library unavailable — refresh to retry</option>`;
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+    }
+  }
 }
 document.querySelector("#ask-form").addEventListener("submit", async (event) => {
   event.preventDefault();

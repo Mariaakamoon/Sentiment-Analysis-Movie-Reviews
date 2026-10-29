@@ -16,6 +16,7 @@ app = Flask(__name__)
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w1280"
+catalog_cache = None
 
 
 def _tmdb_token():
@@ -149,6 +150,10 @@ def trending_movies():
 
 @app.get("/api/movies/catalog")
 def movie_catalog():
+    global catalog_cache
+    if catalog_cache is not None:
+        return jsonify({"ok": True, "source": "TMDB", "count": len(catalog_cache), "results": catalog_cache})
+
     movies = {}
     for language in ("en", "hi"):
         for page in range(1, 4):
@@ -172,6 +177,7 @@ def movie_catalog():
                     movies[movie["id"]] = _movie_summary(movie)
             time.sleep(0.2)
     results = sorted(movies.values(), key=lambda movie: movie.get("rating") or 0, reverse=True)[:100]
+    catalog_cache = results
     return jsonify({"ok": True, "source": "TMDB", "count": len(results), "results": results})
 
 
