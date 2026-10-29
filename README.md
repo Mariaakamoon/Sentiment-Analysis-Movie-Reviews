@@ -1,6 +1,6 @@
 # CineScope — Sentiment Analysis of Movie Reviews
 
-CineScope is a Flask movie discovery interface that combines TMDB movie metadata with the existing VADER review classifier in `sentiment.py`. The app does not fabricate movie data: without a TMDB credential, the movie browsing endpoints report that the provider is unavailable.
+CineScope is a Flask movie discovery interface that combines a local TMDB 5000 dataset with the existing VADER review classifier in `sentiment.py`. The local catalog does not need a TMDB API token. Dataset metadata is historical and does not include current ratings, trailers, or poster paths.
 
 ## Run on Windows PowerShell
 
@@ -14,8 +14,8 @@ Copy-Item .env.example .env
 Create a TMDB account, request an API read access token from the TMDB API settings, and put that token in `.env` as `TMDB_API_TOKEN`:
 
 ```env
-TMDB_API_TOKEN=paste_your_personal_tmdb_read_access_token_here
-GEMINI_API_KEY=paste_your_personal_gemini_api_key_here
+TMDB_API_TOKEN=your_tmdb_read_access_token
+GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.0-flash
 PORT=5002
 ```
@@ -26,7 +26,9 @@ Do not commit `.env` or share the token. Then start the app:
 python main.py
 ```
 
-Open `http://127.0.0.1:5002`. The site has separate pages for `/movies` (100 popular English and Hindi titles), `/movie/<id>` (verified details), `/analyzer` (VADER review analysis), and `/ask` (metadata-grounded Q&A). The review lab works independently of TMDB. Gemini is optional and is used only for Q&A grounded in the selected TMDB metadata; without `GEMINI_API_KEY`, CineScope uses its deterministic fallback. Set `PORT` in `.env` if you want another port.
+The app expects the downloaded files `data/tmdb_5000_movies.csv` and `data/tmdb_5000_credits.csv`. They are intentionally ignored by Git because they are large third-party dataset files. The app uses the dataset locally for `/movies`, search, and movie details, so no TMDB API connection is needed for those features.
+
+Open `http://127.0.0.1:5002`. The site has separate pages for `/movies` (100 popular English and Hindi titles), `/movie/<id>` (dataset details), `/analyzer` (VADER review analysis), and `/ask` (metadata-grounded Q&A). Gemini is optional and is used only for Q&A grounded in the selected movie metadata; without `GEMINI_API_KEY`, CineScope uses its deterministic fallback. Set `PORT` in `.env` if you want another port.
 
 ## Checks
 

@@ -1,6 +1,8 @@
 import os
 import time
 import json
+import csv
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -19,6 +21,24 @@ TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 TMDB_BACKDROP_BASE_URL = "https://image.tmdb.org/t/p/w1280"
 catalog_cache = None
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+DATA_DIR = Path(__file__).parent / "data"
+movies_data = []
+credits_data = {}
+
+
+def _load_dataset():
+    movies_path = DATA_DIR / "tmdb_5000_movies.csv"
+    credits_path = DATA_DIR / "tmdb_5000_credits.csv"
+    if not movies_path.exists() or not credits_path.exists():
+        return
+    with movies_path.open(encoding="utf-8-sig", newline="") as file:
+        movies_data.extend(csv.DictReader(file))
+    with credits_path.open(encoding="utf-8-sig", newline="") as file:
+        for row in csv.DictReader(file):
+            credits_data[row["movie_id"]] = row
+
+
+_load_dataset()
 
 
 def _tmdb_token():
@@ -106,24 +126,39 @@ def _gemini_answer(movie, question, spoiler_mode):
 
 
 def _movie_summary(movie):
+    movie_id = str(movie.get("id") or movie.get("movie_id") or "")
+    genres = _parse_json_list(movie.get("genres"))
     return {
-        "id": movie.get("id"),
+        "id": movie_id,
         "title": movie.get("title") or movie.get("name") or "Untitled",
         "year": (movie.get("release_date") or "")[:4] or "—",
         "overview": movie.get("overview") or "No overview is available.",
         "rating": movie.get("vote_average"),
         "votes": movie.get("vote_count"),
-        "poster": (
-            f"{TMDB_IMAGE_BASE_URL}{movie['poster_path']}"
-            if movie.get("poster_path")
-            else None
-        ),
-        "backdrop": (
-            f"{TMDB_BACKDROP_BASE_URL}{movie['backdrop_path']}"
-            if movie.get("backdrop_path")
-            else None
-        ),
+        "genres": [item.get("name") for item in genres if item.get("name")],
+        "poster": None,
+        "backdrop": None,
     }
+
+
+def _parse_json_list(value):
+    if isinstance(value, list):
+        return value
+    try:
+        parsed = json.loads(value or "[]")
+        return parsed if isinstance(parsed, list) else []
+    except (TypeError, ValueError):
+        return []
+
+
+def _local_movie(movie):
+    result = _movie_summary(movie)
+    credit = credits_data.get(str(movie.get("id")), {})
+    cast = _parse_json_list(credit.get("cast"))
+    result["cast"] = [person.get("name") for person in cast[:8] if person.get("name")]
+    result["runtime"] = int(movie["runtime"]) if str(movie.get("runtime", "")).isdigit() else None
+    result["trailer"] = None
+    return result
 
 
 def _error(message, status=502):
@@ -157,7 +192,14 @@ def ask_page():
 
 @app.get("/health")
 def health():
-    return jsonify({"ok": True, "service": "cinescope", "tmdb_configured": bool(_tmdb_token())})
+    return jsonify(
+        {
+            "ok": True,
+            "service": "cinescope",
+            "metadata_source": "TMDB 5000 local dataset" if movies_data else "unavailable",
+            "tmdb_configured": bool(_tmdb_token()),
+        }
+    )
 
 
 @app.get("/api/movies/search")
@@ -165,61 +207,41 @@ def search_movies():
     query = request.args.get("q", "").strip()
     if len(query) < 2:
         return _error("Enter at least two characters to search.", 400)
-    payload, error = _tmdb_request("/search/movie", {"query": query, "include_adult": "false"})
-    if error:
-        return _error(error)
-    data = _decode_tmdb(payload)
-    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
-        return _error("The movie provider returned an invalid response.")
-    return jsonify({"ok": True, "source": "TMDB", "results": [_movie_summary(movie) for movie in data["results"][:12]]})
+    query = query.casefold()
+    results = [
+        _local_movie(movie)
+        for movie in movies_data
+        if query in (movie.get("title") or "").casefold()
+        or query in (movie.get("original_title") or "").casefold()
+    ]
+    results.sort(key=lambda movie: movie.get("rating") or 0, reverse=True)
+    return jsonify({"ok": True, "source": "TMDB 5000 local dataset", "results": results[:24]})
 
 
 @app.get("/api/movies/trending")
 def trending_movies():
-    payload, error = _tmdb_request("/trending/movie/week")
-    if error:
-        return _error(error)
-    data = _decode_tmdb(payload)
-    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
-        return _error("The movie provider returned an invalid response.")
-    return jsonify({"ok": True, "source": "TMDB", "results": [_movie_summary(movie) for movie in data["results"][:12]]})
+    results = sorted(movies_data, key=lambda movie: float(movie.get("popularity") or 0), reverse=True)
+    return jsonify({"ok": True, "source": "TMDB 5000 local dataset", "results": [_local_movie(movie) for movie in results[:24]]})
 
 
 @app.get("/api/movies/catalog")
 def movie_catalog():
     global catalog_cache
     if catalog_cache is not None:
-        return jsonify({"ok": True, "source": "TMDB", "count": len(catalog_cache), "results": catalog_cache})
+        return jsonify({"ok": True, "source": "TMDB 5000 local dataset", "count": len(catalog_cache), "results": catalog_cache})
 
-    movies = {}
-    for language in ("en", "hi"):
-        for page in range(1, 4):
-            payload, error = _tmdb_request(
-                "/discover/movie",
-                {
-                    "with_original_language": language,
-                    "sort_by": "popularity.desc",
-                    "vote_count.gte": 50,
-                    "include_adult": "false",
-                    "page": page,
-                },
-            )
-            if error:
-                return _error(error)
-            data = _decode_tmdb(payload)
-            if not isinstance(data, dict) or not isinstance(data.get("results"), list):
-                return _error("The movie provider returned an invalid response.")
-            for movie in data["results"]:
-                if movie.get("id"):
-                    movies[movie["id"]] = _movie_summary(movie)
-            time.sleep(0.2)
-    results = sorted(movies.values(), key=lambda movie: movie.get("rating") or 0, reverse=True)[:100]
+    filtered = [movie for movie in movies_data if movie.get("original_language") in {"en", "hi"}]
+    filtered.sort(key=lambda movie: float(movie.get("popularity") or 0), reverse=True)
+    results = [_local_movie(movie) for movie in filtered[:100]]
     catalog_cache = results
-    return jsonify({"ok": True, "source": "TMDB", "count": len(results), "results": results})
+    return jsonify({"ok": True, "source": "TMDB 5000 local dataset", "count": len(results), "results": results})
 
 
 @app.get("/api/movies/<int:movie_id>")
 def movie_details(movie_id):
+    local_movie = next((movie for movie in movies_data if str(movie.get("id")) == str(movie_id)), None)
+    if local_movie:
+        return jsonify({"ok": True, "source": "TMDB 5000 local dataset", "movie": _local_movie(local_movie)})
     payload, error = _tmdb_request(f"/movie/{movie_id}", {"append_to_response": "credits,videos"})
     if error:
         return _error(error)
